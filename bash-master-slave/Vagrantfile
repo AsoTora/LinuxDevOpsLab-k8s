@@ -1,0 +1,53 @@
+Vagrant.configure("2") do |subconfig|
+  # vm1
+  subconfig.vm.define "k8s-master" do |config|
+    config.vm.box = "my/centos7"
+    config.vm.network :private_network, ip: "192.168.56.11"
+    config.vm.hostname = "k8s-master"
+    config.ssh.insert_key = false
+
+    config.vm.provider "virtualbox" do |vb|
+        vb.name = "k8s-master"
+        vb.customize ["modifyvm", :id, "--cpuexecutioncap", "30"]
+        vb.memory = "2048"
+    end
+
+    config.vm.provision "shell", inline: <<-SHELL
+        yum install -y yum-utils jq net-tools
+        yum-config-manager --add-repo \
+        https://download.docker.com/linux/centos/docker-ce.repo
+        yum-config-manager --enable docker-ce-edge
+        yum install -y docker-ce
+        systemctl enable docker
+        systemctl start docker
+        usermod -aG docker vagrant
+    SHELL
+    config.vm.provision "shell", path: "master-config.sh"
+  end
+
+  #vm2
+  subconfig.vm.define "k8s-slave" do |config|
+    config.vm.box = "my/centos7"
+    config.vm.network :private_network, ip: "192.168.56.33"
+    config.vm.hostname = "k8s-slave"
+    config.ssh.insert_key = false
+    
+    config.vm.provider "virtualbox" do |vb|
+        vb.name = "k8s-slave"
+        vb.customize ["modifyvm", :id, "--cpuexecutioncap", "30"]
+        vb.memory = "2048"
+    end
+
+    config.vm.provision "shell", inline: <<-SHELL
+        yum install -y yum-utils jq net-tools
+        yum-config-manager --add-repo \
+        https://download.docker.com/linux/centos/docker-ce.repo
+        yum-config-manager --enable docker-ce-edge
+        yum install -y docker-ce
+        systemctl enable docker
+        systemctl start docker
+        usermod -aG docker vagrant
+    SHELL
+    config.vm.provision "shell", path: "worker-config.sh"
+    end
+end

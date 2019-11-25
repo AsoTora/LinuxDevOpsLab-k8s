@@ -1,0 +1,102 @@
+- name: Base installation
+  hosts: all
+  become: yes
+
+  tasks:
+  - name: Install python libs
+    yum:
+      name: "{{ item }}"
+      state: installed
+    with_items:
+      - yum-utils
+      - python-devel
+      - device-mapper-persistent-data
+      - lvm2
+      - deltarpm
+
+  - name: Install docker repos
+    get_url:
+      url: https://download.docker.com/linux/centos/docker-ce.repo
+      dest: /etc/yum.repos.d/docer-ce.repo
+
+  - name: Install Docker
+    yum:
+      name: "{{ item }}"
+      state: installed
+    with_items:
+      - epel-release
+      - wget
+      - ntp
+      - jq
+      - net-tools
+      - moreutils
+      - git
+
+  - name: Start Docker service
+    service:
+      name: docker
+      state: started
+      enabled: yes
+
+  - name: Add user vagrant to docker group
+    user:
+      name: vagrant
+      groups: docker
+      append: yes
+
+  - name: Disable swap
+    shell: sed -i '/swap/d' /etc/fstab
+
+  - name: swapoff
+    shell: swapoff --all
+
+  - name: Esure Docker Dir exists
+    file: path=/etc/docker state=directory recurse=yes
+
+  - name: Configure docker
+    copy:
+      src: docker.config
+      dest: /etc/docker/daemon.json
+      mode: 0660
+    notify: restart docker
+  - name: Configure docker
+    copy:
+      src: docker.conf
+      dest: /etc/sysctl.d/docker.conf
+      mode: 0660
+
+  - name: Restsrt syst
+    shell: sysctl --system
+
+  - name: Setup kubernrtes repo
+    copy:
+      src: kubernetes.repo
+      dest: /etc/yum.repos.d/kubernetes.repo
+      mode: 0660
+
+  - name: Install Kubernetes
+    yum:
+      name: "{{ item }}"
+      state: installed
+      disable_excludes: kubernetes
+    with_items:
+      - kubelet
+      - kubeadm
+      - kubectl
+
+  - name: Enable kubelet
+    service:
+      name: kubelet
+      enabled: yes
+
+  - name: Fix virtualbox
+    shell: sed -i "s/\(KUBELET_EXTRA_ARGS=\).*/\1--node-ip=192.168.56.225/" /etc/sysconfig/kubelet
+
+
+
+  handlers:
+   - name: restart docker
+     systemd:
+       name: docker
+       state: restarted
+       daemon_reload: yes

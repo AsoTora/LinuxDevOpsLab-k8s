@@ -1,0 +1,92 @@
+- hosts: masters
+  become: yes
+  tasks:
+
+  - name: Initialize the cluster
+    shell: kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address 192.168.56.225 >> cluster_initialized.txt
+    args:
+      chdir: $HOME
+      creates: cluster_initialized.txt
+
+  - name: Create .kube directory
+    become_user: vagrant
+    file:
+      path: $HOME/.kube
+      state: directory
+      mode: 0755
+
+  - name: Create .kube directory
+    file:
+      path: /root/.kube
+      state: directory
+      mode: 0755
+
+  - name: Copy admin.conf to user's kube config
+    copy:
+      src: /etc/kubernetes/admin.conf
+      dest: /home/vagrant/.kube/config
+      remote_src: yes
+      owner: vagrant
+
+  - name: Copy admin.conf to root's kube config
+    copy:
+      src: /etc/kubernetes/admin.conf
+      dest: /root/.kube/config
+      remote_src: yes
+
+  - name: Copy admin.conf to user's kube config
+    copy:
+      src: /etc/kubernetes/admin.conf
+      dest: /vagrant/config
+      remote_src: yes
+      owner: vagrant
+
+  - name: Install Pod network
+    shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/62e44c867a2846fefb68bd5f178daf4da3095ccb/Documentation/kube-flannel.yml >> pod_network_setup.txt
+    args:
+      chdir: $HOME
+      creates: pod_network_setup.txt
+
+  - name: Disable taint
+    shell: kubectl taint nodes --all node-role.kubernetes.io/master-
+
+  - name: Flannel settings
+    script: files/config_flannel.sh
+
+  - name: Install MetalLB
+    shell: kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.8.0/manifests/metallb.yaml
+
+  - name: Metal settings
+    script: files/config_metal.sh
+
+  - name: Install Ingress namespace
+    shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/namespace.yaml
+
+  - name: Install Ingress mandatory
+    shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/mandatory.yaml
+
+  - name: Install Ingress service
+    shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/baremetal/service-nodeport.yaml
+
+  - name: Ingress settings
+    script: files/config_ingress.sh
+
+  - name: Install metrics
+    git:
+      repo: 'https://github.com/kubernetes-incubator/metrics-server.git'
+      dest: /tmp/metrics-server
+      clone: yes
+
+  - name: Install metrics
+    shell: kubectl create -f /tmp/metrics-server/deploy/1.8+/
+
+  - name: Metrics settings
+    script: files/config_metrics.sh
+
+  - name: Install dashboard
+    shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
+
+  - name: Dashboard settings
+    script: files/config_dashboard.sh
+
+

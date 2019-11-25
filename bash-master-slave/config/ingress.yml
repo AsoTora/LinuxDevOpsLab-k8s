@@ -1,0 +1,22 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: app2-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /aqua
+        backend:
+          serviceName: aqua-svc
+          servicePort: aqua-svc-port
+      - path: /maroon
+        backend:
+          serviceName: maroon-svc
+          servicePort: maroon-svc-port
+      - path: /olive
+        backend:
+          serviceName: olive-svc
+          servicePort: olive-svc-port
